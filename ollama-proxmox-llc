@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# Copyright (c) 2024
+# Author: ChatGPT
+# License: MIT
+
+source /dev/stdin <<< "$FUNCTIONS_FILE_PATH"
+color
+verb_ip6
+catch_errors
+setting_up_container
+network_check
+update_os
+
+msg_info "Installing Dependencies"
+$STD apt-get install -y curl
+$STD apt-get install -y sudo
+$STD apt-get install -y mc
+msg_ok "Installed Dependencies"
+
+msg_info "Installing Ollama"
+curl -fsSL https://ollama.com/install.sh | sh
+msg_ok "Installed Ollama"
+
+msg_info "Creating Service"
+cat <<EOF >/etc/systemd/system/Ollama.service
+[Unit]
+Description=Ollama: Language Model API
+ConditionFileIsExecutable=/usr/local/bin/ollama
+After=syslog.target network-online.target
+
+[Service]
+StartLimitInterval=5
+StartLimitBurst=10
+ExecStart=/usr/local/bin/ollama serve
+WorkingDirectory=/usr/local/bin
+StandardOutput=file:/var/log/Ollama.out
+StandardError=file:/var/log/Ollama.err
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable -q --now Ollama.service
+msg_ok "Created Service"
+
+motd_ssh
+customize
+
+msg_info "Cleaning up"
+$STD apt-get -y autoremove
+$STD apt-get -y autoclean
+msg_ok "Cleaned"
